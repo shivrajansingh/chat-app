@@ -1,15 +1,23 @@
-function UserList({ users, currentUser }) {
+function UserList({ users, currentUser, onClose }) {
   return (
-    <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-4 h-full">
+    <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-4 h-full flex flex-col">
       <div className="flex items-center gap-2 mb-4 pb-3 border-b border-white/10">
         <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
         <h3 className="text-lg font-semibold text-white">Online Users</h3>
         <span className="ml-auto text-xs text-gray-400 bg-white/10 px-2 py-1 rounded-full">
           {users.length}
         </span>
+        <button
+          onClick={onClose}
+          className="lg:hidden ml-2 p-1 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-all duration-200"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       </div>
 
-      <ul className="space-y-2 overflow-y-auto max-h-[calc(100vh-200px)]">
+      <ul className="space-y-2 overflow-y-auto flex-1">
         {users.map((user, index) => (
           <li
             key={index}
