@@ -11,8 +11,10 @@ function ChatRoom({ username, onLeave }) {
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [typingUsers, setTypingUsers] = useState([]);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const typingUsersRef = useRef([]);
 
   useEffect(() => {
     const newSocket = io(SOCKET_URL);
@@ -44,15 +46,25 @@ function ChatRoom({ username, onLeave }) {
       setOnlineUsers(users);
     });
 
-    // Listen for typing indicators
+    // Listen for typing indicators - fix: only add if not already present
     newSocket.on('user_typing', ({ username: typingUser }) => {
-      if (typingUser !== username && !typingUsers.includes(typingUser)) {
-        setTypingUsers((prev) => [...prev, typingUser]);
+      typingUsersRef.current = typingUsersRef.current.filter(u => u !== typingUser);
+      typingUsersRef.current.push(typingUser);
+      setTypingUsers([...typingUsersRef.current]);
+      
+      // Clear existing timeout and set new one
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
       }
+      typingTimeoutRef.current = setTimeout(() => {
+        typingUsersRef.current = typingUsersRef.current.filter(u => u !== typingUser);
+        setTypingUsers([...typingUsersRef.current]);
+      }, 2000);
     });
 
     newSocket.on('user_stop_typing', ({ username: typingUser }) => {
-      setTypingUsers((prev) => prev.filter((u) => u !== typingUser));
+      typingUsersRef.current = typingUsersRef.current.filter(u => u !== typingUser);
+      setTypingUsers([...typingUsersRef.current]);
     });
 
     return () => {
@@ -108,6 +120,14 @@ function ChatRoom({ username, onLeave }) {
       <header className="backdrop-blur-xl bg-white/5 border-b border-white/10 px-4 py-3">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="lg:hidden p-2 rounded-lg bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white transition-all duration-200"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </button>
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -128,7 +148,24 @@ function ChatRoom({ username, onLeave }) {
       </header>
 
       {/* Main content */}
-      <div className="flex-1 max-w-7xl mx-auto w-full p-4 flex gap-4 overflow-hidden">
+      <div className="flex-1 max-w-7xl mx-auto w-full p-4 flex gap-4 overflow-hidden relative">
+        {/* Mobile sidebar overlay */}
+        {isSidebarOpen && (
+          <div 
+            className="lg:hidden fixed inset-0 bg-black/50 z-40 backdrop-blur-sm"
+            onClick={() => setIsSidebarOpen(false)}
+          />
+        )}
+        
+        {/* User list sidebar - collapsible on mobile, always visible on desktop */}
+        <div className={`fixed lg:static top-0 right-0 h-full w-72 transform transition-transform duration-300 ease-in-out z-50 lg:transform-none lg:w-64 lg:block ${
+          isSidebarOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'
+        }`}>
+          <div className="h-full pt-20 lg:pt-0 pr-4">
+            <UserList users={onlineUsers} currentUser={username} onClose={() => setIsSidebarOpen(false)} />
+          </div>
+        </div>
+
         {/* Chat area */}
         <div className="flex-1 flex flex-col backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
           {/* Messages */}
@@ -193,15 +230,12 @@ function ChatRoom({ username, onLeave }) {
             </div>
           </form>
         </div>
-
-        {/* User list sidebar - hidden on mobile */}
-        <div className="hidden lg:block w-64 shrink-0">
-          <UserList users={onlineUsers} currentUser={username} />
-        </div>
       </div>
 
-      {/* Mobile user count badge */}
-      <div className="lg:hidden fixed bottom-20 right-4 px-3 py-2 rounded-full bg-purple-600/80 backdrop-blur-sm text-white text-xs font-medium shadow-lg">
+      {/* Mobile user count badge - only show when sidebar is closed */}
+      <div className={`lg:hidden fixed bottom-20 right-4 px-3 py-2 rounded-full bg-purple-600/80 backdrop-blur-sm text-white text-xs font-medium shadow-lg transition-opacity duration-200 ${
+        isSidebarOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
+      }`}>
         {onlineUsers.length} online
       </div>
     </div>
